@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0420">
+<title>Sobe ou Desce?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0420;
+    --bg2: #1a0938;
+    --pink: #ff2bd6;
+    --cyan: #22f3ff;
+    --yellow: #ffe94a;
+    --green: #39ff6a;
+    --red: #ff3b5c;
+    --text: #f4ecff;
+    --dim: #9a86c9;
+    --font: "Press Start 2P", ui-monospace, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    background-image:
+      linear-gradient(transparent 0 calc(100% - 2px), rgba(255,43,214,.10) 0),
+      linear-gradient(90deg, transparent 0 calc(100% - 2px), rgba(34,243,255,.07) 0);
+    background-size: 24px 24px;
+    color: var(--text);
+    font-family: var(--font);
+    -webkit-font-smoothing: none;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+  /* scanlines */
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,.18) 0 1px, transparent 1px 3px);
+  }
+  .app {
+    max-width: 520px; margin: 0 auto;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+    padding: max(10px, env(safe-area-inset-top)) 14px max(10px, env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .logo { font-size: 13px; color: var(--yellow); text-shadow: 2px 2px 0 var(--pink); letter-spacing: 1px; }
+  .iconbtn {
+    font-family: var(--font); font-size: 16px; line-height: 1;
+    background: var(--bg2); color: var(--cyan);
+    border: 3px solid var(--cyan); padding: 8px 10px; cursor: pointer;
+    box-shadow: 3px 3px 0 #000; min-width: 48px; min-height: 44px;
+  }
+  .iconbtn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #000; }
+
+  main { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .screen { display: none; flex: 1; flex-direction: column; gap: 10px; }
+  .screen.active { display: flex; }
+
+  /* ---------- Start ---------- */
+  .title-big {
+    text-align: center; font-size: clamp(26px, 9vw, 42px); line-height: 1.35;
+    color: var(--pink);
+    text-shadow: 3px 3px 0 var(--cyan), 6px 6px 0 #000;
+    margin-top: 4vh;
+    animation: flicker 3s infinite steps(1);
+  }
+  .title-big span { color: var(--yellow); }
+  @keyframes flicker { 0%, 92%, 100% { opacity: 1; } 93% { opacity: .55; } 95% { opacity: 1; } 97% { opacity: .7; } }
+  .arrows { text-align: center; font-size: 28px; letter-spacing: 18px; }
+  .arrows .u { color: var(--green); animation: bob 0.8s infinite steps(2); display: inline-block; }
+  .arrows .d { color: var(--red); animation: bob 0.8s infinite steps(2) reverse; display: inline-block; }
+  @keyframes bob { 0% { transform: translateY(-4px); } 100% { transform: translateY(4px); } }
+  .panel {
+    background: rgba(26, 9, 56, .92);
+    border: 3px solid var(--pink);
+    box-shadow: 0 0 0 3px #000, 0 0 18px rgba(255,43,214,.35);
+    padding: 14px;
+    font-size: 10px; line-height: 1.9; color: var(--text);
+  }
+  .panel b { color: var(--cyan); font-weight: normal; }
+  .hi { text-align: center; font-size: 12px; color: var(--yellow); }
+  .blink { animation: blink 1s infinite steps(1); }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .btn {
+    font-family: var(--font); font-size: 16px; letter-spacing: 1px;
+    width: 100%; min-height: 64px; padding: 14px 10px;
+    cursor: pointer; border: 4px solid #000; color: #000;
+    box-shadow: 0 6px 0 #000, inset 0 -6px 0 rgba(0,0,0,.25), inset 0 4px 0 rgba(255,255,255,.35);
+    transition: transform .05s;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  .btn:active:not(:disabled) { transform: translateY(5px); box-shadow: 0 1px 0 #000, inset 0 -6px 0 rgba(0,0,0,.25); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn:focus-visible, .iconbtn:focus-visible { outline: 3px dashed var(--yellow); outline-offset: 3px; }
+  .btn-start { background: var(--yellow); }
+  .btn-up { background: var(--green); }
+  .btn-down { background: var(--red); color: #fff; text-shadow: 2px 2px 0 #000; }
+  .btn-next { background: var(--cyan); }
+  .btn .sub { display: block; font-size: 9px; margin-top: 6px; opacity: .8; }
+
+  /* ---------- Game ---------- */
+  .hud { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; }
+  .hud div { background: #000; border: 2px solid var(--cyan); padding: 6px 7px; flex: 1; text-align: center; line-height: 1.6; }
+  .hud small { display: block; color: var(--dim); font-size: 8px; }
+  .hud .v { color: var(--yellow); }
+  .chart-wrap {
+    position: relative; background: #05020f;
+    border: 3px solid var(--cyan);
+    box-shadow: 0 0 0 3px #000, 0 0 16px rgba(34,243,255,.3);
+    padding: 22px 6px 22px 6px;
+  }
+  canvas#chart {
+    display: block; width: 100%; aspect-ratio: 16 / 10;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+  }
+  .lbl { position: absolute; font-size: 8px; color: var(--dim); }
+  .lbl.max { top: 6px; left: 8px; }
+  .lbl.min { bottom: 6px; left: 8px; }
+  .lbl.d0 { bottom: 6px; left: 50%; transform: translateX(-50%); }
+  .lbl.d1 { top: 6px; right: 8px; color: var(--cyan); }
+  .question { text-align: center; font-size: 11px; line-height: 1.8; }
+  .question .q { color: var(--yellow); }
+  .question .day { color: var(--cyan); }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: auto; }
+  .controls .btn { min-height: 84px; font-size: 18px; }
+  .result {
+    text-align: center; display: none; flex-direction: column; gap: 10px; margin-top: auto;
+  }
+  .result.show { display: flex; }
+  .verdict { font-size: 22px; line-height: 1.3; }
+  .verdict.ok { color: var(--green); text-shadow: 3px 3px 0 #000, 0 0 12px var(--green); }
+  .verdict.bad { color: var(--red); text-shadow: 3px 3px 0 #000, 0 0 12px var(--red); }
+  .detail { font-size: 10px; line-height: 1.9; color: var(--text); }
+  .detail .up { color: var(--green); } .detail .down { color: var(--red); }
+  .pop { animation: pop .35s steps(4); }
+  @keyframes pop { 0% { transform: scale(.3); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  .shake { animation: shake .4s steps(6); }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+
+  /* ---------- End ---------- */
+  .gameover { text-align: center; font-size: clamp(24px, 8vw, 34px); color: var(--red); text-shadow: 3px 3px 0 var(--yellow), 6px 6px 0 #000; margin-top: 3vh; line-height: 1.4; }
+  .final { text-align: center; font-size: 12px; line-height: 2.2; }
+  .final .big { font-size: 28px; color: var(--yellow); display: block; margin: 6px 0; }
+  .newrec { color: var(--green); font-size: 13px; }
+  .history { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .history span { width: 24px; height: 24px; border: 2px solid #000; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
+  .history .h1 { background: var(--green); color: #000; }
+  .history .h0 { background: var(--red); color: #fff; }
+
+  .notice {
+    font-size: 8px; line-height: 1.7; color: var(--dim); text-align: center;
+    border: 2px dashed var(--dim); padding: 6px; display: none;
+  }
+  .notice.show { display: block; }
+  .loading { text-align: center; font-size: 11px; color: var(--cyan); }
+
+  footer { text-align: center; font-size: 8px; line-height: 1.8; color: var(--dim); padding-top: 4px; }
+
+  @media (max-height: 680px) {
+    .title-big { margin-top: 1vh; }
+    .controls .btn { min-height: 70px; }
+    .chart-wrap canvas#chart { aspect-ratio: 16 / 9; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">▲▼ SOBE OU DESCE?</div>
+    <button class="iconbtn" id="muteBtn" aria-label="Desligar som" title="Som">♪</button>
+  </header>
+
+  <main>
+    <!-- Tela inicial -->
+    <section class="screen active" id="scrStart">
+      <h1 class="title-big">SOBE<br><span>OU</span><br>DESCE?</h1>
+      <div class="arrows" aria-hidden="true"><span class="u">▲</span><span class="d">▼</span></div>
+      <div class="panel">
+        Veja o gráfico do <b>dólar</b> (USD-BRL) nos <b>30 dias</b> anteriores a uma data sorteada.<br>
+        Chute: no dia seguinte o dólar <b>SUBIU</b> ou <b>DESCEU</b>?<br>
+        <b>10 rodadas</b>. Acertos seguidos multiplicam os pontos!
+      </div>
+      <div class="hi">RECORDE: <span id="hiStart">0</span></div>
+      <div class="loading" id="loading">CARREGANDO DADOS<span class="blink">...</span></div>
+      <div class="notice" id="notice">⚠ Não foi possível buscar a cotação real. Usando dados simulados.</div>
+      <button class="btn btn-start" id="startBtn" disabled>
+        <span class="blink" id="startTxt">AGUARDE</span>
+      </button>
+    </section>
+
+    <!-- Tela do jogo -->
+    <section class="screen" id="scrGame">
+      <div class="hud">
+        <div><small>RODADA</small><span class="v" id="hudRound">1/10</span></div>
+        <div><small>PONTOS</small><span class="v" id="hudScore">0</span></div>
+        <div><small>COMBO</small><span class="v" id="hudCombo">x1</span></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart" width="200" height="125" role="img" aria-label="Gráfico do dólar nos 30 dias anteriores"></canvas>
+        <span class="lbl max" id="lblMax"></span>
+        <span class="lbl min" id="lblMin"></span>
+        <span class="lbl d0" id="lblRange"></span>
+        <span class="lbl d1" id="lblLast"></span>
+      </div>
+      <div class="question" id="question">
+        <span class="day" id="qDay"></span><br>
+        <span class="q">No dia seguinte, o dólar SUBIU ou DESCEU?</span>
+      </div>
+      <div class="controls" id="controls">
+        <button class="btn btn-up" id="upBtn" aria-label="Subiu">▲<br>SUBIU</button>
+        <button class="btn btn-down" id="downBtn" aria-label="Desceu">▼<br>DESCEU</button>
+      </div>
+      <div class="result" id="result">
+        <div class="verdict" id="verdict"></div>
+        <div class="detail" id="detail"></div>
+        <button class="btn btn-next" id="nextBtn">PRÓXIMA ▶</button>
+      </div>
+    </section>
+
+    <!-- Tela final -->
+    <section class="screen" id="scrEnd">
+      <h2 class="gameover">FIM DE<br>JOGO</h2>
+      <div class="final">
+        ACERTOS: <span id="endHits">0</span>/10
+        <span class="big" id="endScore">0</span>
+        PONTOS<br>
+        RECORDE: <span id="endHi">0</span><br>
+        <span class="newrec blink" id="newRec" hidden>★ NOVO RECORDE! ★</span>
+      </div>
+      <div class="history" id="history"></div>
+      <div class="panel" id="endMsg" style="text-align:center"></div>
+      <button class="btn btn-start" id="againBtn" style="margin-top:auto">JOGAR DE NOVO</button>
+    </section>
+  </main>
+
+  <footer>Jogo educativo — não é previsão nem recomendação de investimento.</footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const API_URL = "https://economia.awesomeapi.com.br/json/daily/USD-BRL/365";
+  const ROUNDS = 10;
+  const WINDOW = 30;
+  const HI_KEY = "sobeoudesce_retro_recorde";
+  const MUTE_KEY = "sobeoudesce_retro_mudo";
+
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Armazenamento seguro ----------
+  function load(key, fallback) {
+    try { const v = localStorage.getItem(key); return v === null ? fallback : v; }
+    catch (e) { return fallback; }
+  }
+  function save(key, value) {
+    try { localStorage.setItem(key, String(value)); } catch (e) { /* ignora */ }
+  }
+
+  // ---------- Som 8 bits ----------
+  let muted = load(MUTE_KEY, "0") === "1";
+  let actx = null;
+  function audio() {
+    if (muted) return null;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      return actx;
+    } catch (e) { return null; }
+  }
+  function tone(freq, start, dur, type = "square", vol = 0.08) {
+    const ctx = audio(); if (!ctx) return;
+    const t0 = ctx.currentTime + start;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.setValueAtTime(vol, t0 + dur * 0.8);
+    g.gain.linearRampToValueAtTime(0, t0 + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+  const sfx = {
+    click() { tone(880, 0, 0.05); },
+    start() { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.08, 0.08)); },
+    tick(i) { tone(300 + i * 40, 0, 0.03, "square", 0.04); },
+    win() { [784, 988, 1319].forEach((f, i) => tone(f, i * 0.07, 0.09)); },
+    lose() { [392, 330, 262, 196].forEach((f, i) => tone(f, i * 0.09, 0.1, "sawtooth", 0.06)); },
+    end(good) {
+      const seq = good ? [523, 659, 784, 1047, 784, 1047, 1319] : [440, 415, 392, 370, 349];
+      seq.forEach((f, i) => tone(f, i * 0.12, 0.12, good ? "square" : "triangle", 0.08));
+    }
+  };
+  function renderMute() {
+    $("muteBtn").textContent = muted ? "✕" : "♪";
+    $("muteBtn").setAttribute("aria-label", muted ? "Ligar som" : "Desligar som");
+    $("muteBtn").style.color = muted ? "var(--dim)" : "var(--cyan)";
+    $("muteBtn").style.borderColor = muted ? "var(--dim)" : "var(--cyan)";
+  }
+  $("muteBtn").addEventListener("click", () => {
+    muted = !muted; save(MUTE_KEY, muted ? "1" : "0"); renderMute();
+    if (!muted) sfx.click();
+  });
+  renderMute();
+
+  // ---------- Dados ----------
+  let series = []; // [{date: Date, value: Number}] em ordem cronológica
+  let simulated = false;
+
+  function dayKey(d) { return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate(); }
+
+  async function fetchReal() {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const res = await fetch(API_URL, { signal: ctrl.signal, cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const json = await res.json();
+      if (!Array.isArray(json)) throw new Error("formato inesperado");
+      const map = new Map();
+      for (const it of json) {
+        const ts = Number(it.timestamp);
+        const v = parseFloat(it.bid);
+        if (!isFinite(ts) || !isFinite(v) || v <= 0) continue;
+        const date = new Date(ts * 1000);
+        const k = dayKey(date);
+        // mantém a cotação mais recente de cada dia
+        if (!map.has(k) || map.get(k).date < date) map.set(k, { date, value: v });
+      }
+      const arr = [...map.values()].sort((a, b) => a.date - b.date);
+      if (arr.length < WINDOW + 15) throw new Error("dados insuficientes");
+      return arr;
+    } finally { clearTimeout(timer); }
+  }
+
+  function simulate() {
+    const arr = [];
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - 400);
+    let v = 5.0 + Math.random() * 0.7;
+    let drift = 0;
+    while (arr.length < 260) {
+      d.setDate(d.getDate() + 1);
+      const wd = d.getDay();
+      if (wd === 0 || wd === 6) continue; // só dias úteis
+      drift = drift * 0.9 + (Math.random() - 0.5) * 0.004;
+      v = v * (1 + drift + (Math.random() - 0.5) * 0.018);
+      if (v < 4.8) v = 4.8 + (4.8 - v);
+      if (v > 6.2) v = 6.2 - (v - 6.2);
+      arr.push({ date: new Date(d), value: Math.round(v * 10000) / 10000 });
+    }
+    return arr;
+  }
+
+  async function loadData() {
+    try {
+      series = await fetchReal();
+      simulated = false;
+    } catch (e) {
+      series = simulate();
+      simulated = true;
+      $("notice").classList.add("show");
+    }
+    $("loading").style.display = "none";
+    $("startBtn").disabled = false;
+    $("startTxt").textContent = "INSERIR FICHA ▶";
+  }
+
+  // ---------- Formatação ----------
+  const fmtBRL = (v) => "R$ " + v.toFixed(4).replace(".", ",");
+  const fmtPct = (p) => (p > 0 ? "+" : "") + p.toFixed(2).replace(".", ",") + "%";
+  const fmtDate = (d) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const fmtShort = (d) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
+  // ---------- Gráfico pixelado ----------
+  const cv = $("chart");
+  const g = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  const PAD = { l: 4, r: 14, t: 8, b: 8 };
+
+  function px(x, y, c, s = 1) { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), s, s); }
+  function line(x0, y0, x1, y1, c, s = 2) {
+    x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    for (;;) {
+      px(x0, y0, c, s);
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+  }
+
+  // pts: valores visíveis; extra: {value, progress 0..1, color} para revelação
+  function drawChart(pts, extra) {
+    // Escala simétrica em torno do centro dos 30 dias: cabe o dia seguinte
+    // sem "entregar" a direção pelo enquadramento do gráfico.
+    const pmin = Math.min(...pts), pmax = Math.max(...pts);
+    const center = (pmin + pmax) / 2;
+    const half = Math.max(((pmax - pmin) / 2 || 0.005) * 1.2, Math.abs(scaleNext - center) * 1.08);
+    const lo = center - half, hi = center + half;
+    const n = pts.length + 1; // reserva espaço para o dia seguinte
+    const X = (i) => PAD.l + (i / (n - 1)) * (W - PAD.l - PAD.r);
+    const Y = (v) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
+
+    g.fillStyle = "#05020f"; g.fillRect(0, 0, W, H);
+    // grade pontilhada
+    for (let gy = 0; gy <= 4; gy++) {
+      const y = Math.round(PAD.t + gy * (H - PAD.t - PAD.b) / 4);
+      for (let x = 0; x < W; x += 4) px(x, y, "#2a1550");
+    }
+    for (let i = 0; i < n; i += 5) {
+      const x = Math.round(X(i));
+      for (let y = 0; y < H; y += 4) px(x, y, "#1d0f3a");
+    }
+    // coluna do "dia seguinte"
+    const xq = Math.round(X(n - 1));
+    for (let y = 0; y < H; y += 2) px(xq, y, extra ? "#3a2a10" : "#5a4a10");
+
+    // área sob a linha (pixels esparsos)
+    for (let i = 0; i < pts.length; i++) {
+      const x = Math.round(X(i)), y = Math.round(Y(pts[i]));
+      for (let yy = y + 3; yy < H - 1; yy += 3) px(x, yy, "rgba(255,43,214,.25)");
+    }
+    // linha principal (sombra + neon)
+    for (let i = 1; i < pts.length; i++) line(X(i - 1), Y(pts[i - 1]) + 1, X(i), Y(pts[i]) + 1, "#4a0a40");
+    for (let i = 1; i < pts.length; i++) line(X(i - 1), Y(pts[i - 1]), X(i), Y(pts[i]), "#ff2bd6");
+    for (let i = 0; i < pts.length; i++) px(X(i), Y(pts[i]), "#ffd0f6", 2);
+
+    // último ponto conhecido
+    const lx = X(pts.length - 1), ly = Y(pts[pts.length - 1]);
+    px(lx - 1, ly - 1, "#22f3ff", 4);
+
+    if (extra) {
+      const p = extra.progress;
+      const tx = lx + (X(n - 1) - lx) * p;
+      const ty = ly + (Y(extra.value) - ly) * p;
+      line(lx, ly, tx, ty, extra.color, 3);
+      if (p >= 1) {
+        const flash = extra.flash ? "#ffffff" : extra.color;
+        px(tx - 2, ty - 2, flash, 6);
+      }
+    } else {
+      // "?" pixelado piscando no dia seguinte
+      if (Math.floor(performance.now() / 400) % 2 === 0) drawQ(xq - 2, Math.round(H / 2) - 4, "#ffe94a");
+    }
+  }
+  let scaleNext = 0;
+
+  const Q = ["0110", "1001", "0001", "0010", "0100", "0000", "0100"];
+  function drawQ(x, y, c) {
+    Q.forEach((row, j) => [...row].forEach((b, i) => { if (b === "1") px(x + i, y + j, c); }));
+  }
+
+  // ---------- Estado do jogo ----------
+  const st = { round: 0, score: 0, combo: 1, hits: 0, usedIdx: new Set(), cur: null, history: [], busy: false };
+  let idleRAF = null;
+
+  function show(id) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
+  }
+
+  function pickRound() {
+    // índice i = último dia mostrado; precisa de 30 dias até i e do dia i+1
+    const candidates = [];
+    for (let i = WINDOW - 1; i < series.length - 1; i++) {
+      if (st.usedIdx.has(i)) continue;
+      if (series[i + 1].value === series[i].value) continue; // evita empate
+      candidates.push(i);
+    }
+    const i = candidates[Math.floor(Math.random() * candidates.length)];
+    st.usedIdx.add(i);
+    // evita sortear dias quase idênticos na mesma partida
+    for (let k = i - 3; k <= i + 3; k++) st.usedIdx.add(k);
+    return {
+      idx: i,
+      pts: series.slice(i - WINDOW + 1, i + 1).map((p) => p.value),
+      lastDate: series[i].date,
+      firstDate: series[i - WINDOW + 1].date,
+      next: series[i + 1],
+      last: series[i].value
+    };
+  }
+
+  function idleLoop() {
+    if (!st.cur || st.busy) return;
+    drawChart(st.cur.pts, null);
+    idleRAF = requestAnimationFrame(idleLoop);
+  }
+
+  function startGame() {
+    sfx.start();
+    st.round = 0; st.score = 0; st.combo = 1; st.hits = 0;
+    st.usedIdx = new Set(); st.history = [];
+    show("scrGame");
+    nextRound();
+  }
+
+  function updateHud() {
+    $("hudRound").textContent = (st.round) + "/" + ROUNDS;
+    $("hudScore").textContent = st.score;
+    $("hudCombo").textContent = "x" + st.combo;
+  }
+
+  function nextRound() {
+    if (st.round >= ROUNDS) return endGame();
+    st.round++;
+    st.cur = pickRound();
+    st.busy = false;
+    scaleNext = st.cur.next.value;
+    updateHud();
+    const pts = st.cur.pts;
+    $("lblMax").textContent = fmtBRL(Math.max(...pts));
+    $("lblMin").textContent = fmtBRL(Math.min(...pts));
+    $("lblRange").textContent = fmtShort(st.cur.firstDate) + " → " + fmtShort(st.cur.lastDate);
+    $("lblLast").textContent = "?";
+    $("qDay").textContent = "Último dia: " + fmtDate(st.cur.lastDate) + " — " + fmtBRL(st.cur.last);
+    $("controls").style.display = "grid";
+    $("question").style.display = "block";
+    $("result").classList.remove("show");
+    $("upBtn").disabled = false; $("downBtn").disabled = false;
+    cancelAnimationFrame(idleRAF);
+    idleLoop();
+  }
+
+  function guess(up) {
+    if (!st.cur || st.busy) return;
+    st.busy = true;
+    cancelAnimationFrame(idleRAF);
+    sfx.click();
+    $("upBtn").disabled = true; $("downBtn").disabled = true;
+
+    const c = st.cur;
+    const wentUp = c.next.value > c.last;
+    const right = up === wentUp;
+    const pct = (c.next.value / c.last - 1) * 100;
+    const color = wentUp ? "#39ff6a" : "#ff3b5c";
+
+    const DUR = 900;
+    const t0 = performance.now();
+    let ticks = 0;
+    function step(now) {
+      const p = Math.min(1, (now - t0) / DUR);
+      // progresso em degraus (sensação 8 bits)
+      const stepped = Math.floor(p * 12) / 12;
+      if (Math.floor(p * 12) > ticks) { ticks = Math.floor(p * 12); sfx.tick(ticks); }
+      drawChart(c.pts, { value: c.next.value, progress: p >= 1 ? 1 : stepped, color });
+      if (p < 1) requestAnimationFrame(step);
+      else flashThen(() => reveal(right, wentUp, pct));
+    }
+    requestAnimationFrame(step);
+  }
+
+  function flashThen(cb) {
+    const c = st.cur;
+    const color = c.next.value > c.last ? "#39ff6a" : "#ff3b5c";
+    let k = 0;
+    const iv = setInterval(() => {
+      drawChart(c.pts, { value: c.next.value, progress: 1, color, flash: k % 2 === 0 });
+      if (++k > 5) { clearInterval(iv); cb(); }
+    }, 90);
+  }
+
+  function reveal(right, wentUp, pct) {
+    const c = st.cur;
+    let gained = 0;
+    if (right) {
+      gained = 100 * st.combo;
+      st.score += gained; st.hits++;
+      st.combo = Math.min(st.combo + 1, 5);
+      sfx.win();
+    } else {
+      st.combo = 1;
+      sfx.lose();
+    }
+    st.history.push(right);
+    updateHud();
+    $("lblLast").textContent = fmtShort(c.next.date) + ": " + fmtBRL(c.next.value);
+
+    const v = $("verdict");
+    v.className = "verdict " + (right ? "ok pop" : "bad shake");
+    v.textContent = right ? "ACERTOU! +" + gained : "ERROU!";
+    $("detail").innerHTML =
+      "Em " + fmtDate(c.next.date) + " o dólar <span class='" + (wentUp ? "up'>SUBIU ▲" : "down'>DESCEU ▼") + "</span><br>" +
+      fmtBRL(c.last) + " → " + fmtBRL(c.next.value) +
+      " (<span class='" + (wentUp ? "up" : "down") + "'>" + fmtPct(pct) + "</span>)";
+    $("nextBtn").textContent = st.round >= ROUNDS ? "VER PLACAR ▶" : "PRÓXIMA ▶";
+    $("controls").style.display = "none";
+    $("question").style.display = "none";
+    $("result").classList.add("show");
+    $("nextBtn").focus({ preventScroll: true });
+  }
+
+  function endGame() {
+    st.cur = null;
+    cancelAnimationFrame(idleRAF);
+    const hi = parseInt(load(HI_KEY, "0"), 10) || 0;
+    const isNew = st.score > hi;
+    if (isNew) save(HI_KEY, st.score);
+    const best = Math.max(hi, st.score);
+    $("endHits").textContent = st.hits;
+    $("endScore").textContent = st.score;
+    $("endHi").textContent = best;
+    $("hiStart").textContent = best;
+    $("newRec").hidden = !isNew;
+    $("history").innerHTML = st.history.map((h, i) =>
+      "<span class='h" + (h ? 1 : 0) + "' title='Rodada " + (i + 1) + "'>" + (h ? "✓" : "✗") + "</span>").join("");
+    const msgs = [
+      [9, "LENDÁRIO! Mas lembre: acertar o passado não garante o futuro."],
+      [7, "Mandou bem! O câmbio é imprevisível — sorte também conta."],
+      [5, "Na média de uma moeda jogada pro alto. O mercado é difícil!"],
+      [0, "O dólar te enganou! Ninguém prevê o câmbio de um dia pro outro."]
+    ];
+    $("endMsg").textContent = msgs.find(([min]) => st.hits >= min)[1] +
+      (simulated ? " (Partida com dados simulados.)" : "");
+    show("scrEnd");
+    sfx.end(st.hits >= 6);
+    $("againBtn").focus({ preventScroll: true });
+  }
+
+  // ---------- Eventos ----------
+  $("startBtn").addEventListener("click", startGame);
+  $("againBtn").addEventListener("click", startGame);
+  $("upBtn").addEventListener("click", () => guess(true));
+  $("downBtn").addEventListener("click", () => guess(false));
+  $("nextBtn").addEventListener("click", () => { sfx.click(); nextRound(); });
+  document.addEventListener("keydown", (e) => {
+    if (!$("scrGame").classList.contains("active")) return;
+    if (e.key === "ArrowUp" && !st.busy) { e.preventDefault(); guess(true); }
+    else if (e.key === "ArrowDown" && !st.busy) { e.preventDefault(); guess(false); }
+  });
+
+  $("hiStart").textContent = parseInt(load(HI_KEY, "0"), 10) || 0;
+  loadData();
+})();
+</script>
+</body>
+</html>
