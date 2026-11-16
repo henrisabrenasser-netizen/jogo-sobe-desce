@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>Sobe ou Desce?</title>
+<style>
+  :root{
+    --bg:#0b0d12; --card:#141821; --card2:#1b202b; --line:#262c39;
+    --text:#eef1f6; --muted:#8a93a6; --accent:#7c5cff; --accent2:#a48bff;
+    --up:#22c55e; --down:#f43f5e; --radius:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(120% 60% at 50% -10%,#1c1640 0%,var(--bg) 55%);
+    background-color:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    max-width:460px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
+    padding:max(14px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));
+    gap:12px;
+  }
+  header{display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:-.2px}
+  .logo{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--accent),#4f8cff);font-size:16px;box-shadow:0 6px 20px #7c5cff55}
+  .pill{font-size:12px;color:var(--muted);background:var(--card);border:1px solid var(--line);
+    padding:6px 10px;border-radius:999px;white-space:nowrap}
+  .pill b{color:var(--text)}
+  .notice{display:none;font-size:12px;color:#f5c26b;background:#f5c26b12;border:1px solid #f5c26b33;
+    padding:7px 12px;border-radius:12px}
+  .notice.show{display:block}
+  .card{background:linear-gradient(180deg,var(--card),#11141b);border:1px solid var(--line);
+    border-radius:var(--radius);padding:16px}
+  .screen{display:none;flex-direction:column;gap:12px;flex:1;animation:fade .45s ease}
+  .screen.active{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* progresso */
+  .progress{display:flex;gap:4px}
+  .progress span{flex:1;height:4px;border-radius:4px;background:var(--line);transition:background .4s}
+  .progress span.ok{background:var(--up)} .progress span.no{background:var(--down)}
+  .progress span.cur{background:var(--accent2)}
+
+  .quote .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+  .quote .row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:4px}
+  .price{font-size:34px;font-weight:700;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+  .date{font-size:13px;color:var(--muted)}
+  .chart-wrap{position:relative;height:min(34vh,260px);margin-top:10px}
+  .question{text-align:center;font-size:17px;font-weight:600;line-height:1.35;padding:2px 6px}
+  .question small{display:block;color:var(--muted);font-weight:400;font-size:13px;margin-top:4px}
+
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:auto}
+  button{font:inherit;border:0;cursor:pointer;color:var(--text);border-radius:18px;
+    transition:transform .15s ease,opacity .2s,filter .2s,background .2s}
+  button:active{transform:scale(.97)}
+  button:disabled{opacity:.35;cursor:default}
+  .btn-up,.btn-down{min-height:76px;font-size:19px;font-weight:700;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:2px}
+  .btn-up{background:linear-gradient(180deg,#1f9d55,#178045);box-shadow:0 8px 24px #22c55e33}
+  .btn-down{background:linear-gradient(180deg,#e23a5a,#be2945);box-shadow:0 8px 24px #f43f5e33}
+  .btn-up .ico,.btn-down .ico{font-size:22px;line-height:1}
+  .btn-primary{width:100%;min-height:60px;font-size:17px;font-weight:700;
+    background:linear-gradient(135deg,var(--accent),#5b6bff);box-shadow:0 8px 26px #7c5cff44}
+  .btn-ghost{width:100%;min-height:52px;font-size:15px;background:var(--card2);border:1px solid var(--line)}
+
+  .result{display:none;align-items:center;gap:12px}
+  .result.show{display:flex;animation:pop .45s cubic-bezier(.2,.9,.3,1.3)}
+  @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+  .badge{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:22px;flex:none}
+  .badge.ok{background:#22c55e22;color:var(--up)} .badge.no{background:#f43f5e22;color:var(--down)}
+  .result .t{font-weight:700;font-size:16px}
+  .result .s{font-size:13px;color:var(--muted);margin-top:2px}
+  .chg{font-weight:700;font-variant-numeric:tabular-nums}
+  .chg.up{color:var(--up)} .chg.down{color:var(--down)}
+
+  /* intro / fim */
+  .hero{text-align:center;padding:26px 16px}
+  .hero h1{font-size:34px;letter-spacing:-1px;line-height:1.1}
+  .hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--up),var(--accent2),var(--down));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);margin-top:10px;font-size:15px;line-height:1.5}
+  .steps{display:flex;flex-direction:column;gap:10px}
+  .step{display:flex;gap:12px;align-items:center;font-size:14px;color:#cdd3df}
+  .step i{font-style:normal;width:30px;height:30px;border-radius:10px;background:var(--card2);
+    border:1px solid var(--line);display:grid;place-items:center;font-size:13px;color:var(--accent2);flex:none}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:var(--card2);border:1px solid var(--line);border-radius:16px;padding:14px}
+  .stat .k{font-size:12px;color:var(--muted)} .stat .v{font-size:24px;font-weight:700;margin-top:2px}
+  .score{font-size:64px;font-weight:800;letter-spacing:-2px;font-variant-numeric:tabular-nums}
+  .score span{font-size:28px;color:var(--muted);font-weight:600}
+  .newrec{display:inline-block;margin-top:8px;font-size:13px;font-weight:600;color:#ffd166;
+    background:#ffd16618;border:1px solid #ffd16640;padding:5px 12px;border-radius:999px;animation:pop .5s}
+  .loading{flex:1;display:grid;place-items:center;color:var(--muted);font-size:14px}
+  .spinner{width:28px;height:28px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);
+    animation:spin .8s linear infinite;margin:0 auto 10px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  footer{text-align:center;font-size:11px;color:#6b7386;line-height:1.4;padding-top:4px}
+  @media (max-height:640px){
+    .btn-up,.btn-down{min-height:64px}
+    .price{font-size:28px}
+    .chart-wrap{height:30vh}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><div class="logo">↕</div>Sobe ou Desce?</div>
+    <div class="pill">Recorde <b id="hdrBest">0</b>/10</div>
+  </header>
+  <div class="notice" id="notice">Sem conexão com a cotação real — usando dados simulados.</div>
+
+  <!-- Carregando -->
+  <section class="screen active" id="scrLoading">
+    <div class="loading"><div><div class="spinner"></div>Carregando cotações do dólar…</div></div>
+  </section>
+
+  <!-- Início -->
+  <section class="screen" id="scrIntro">
+    <div class="card hero">
+      <h1>O dólar vai <em>subir</em> ou <em>descer</em>?</h1>
+      <p>Veja 30 dias de histórico do dólar (USD‑BRL) e tente adivinhar o que aconteceu no dia seguinte.</p>
+    </div>
+    <div class="card steps">
+      <div class="step"><i>1</i>Sorteamos um dia real do último ano.</div>
+      <div class="step"><i>2</i>Você analisa o gráfico dos 30 dias anteriores.</div>
+      <div class="step"><i>3</i>Chuta: no dia seguinte, subiu ou desceu?</div>
+      <div class="step"><i>10</i>São 10 rodadas. Bata seu recorde!</div>
+    </div>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+      <button class="btn-primary" id="btnStart">Começar partida</button>
+    </div>
+  </section>
+
+  <!-- Jogo -->
+  <section class="screen" id="scrGame">
+    <div class="progress" id="progress"></div>
+    <div class="card quote">
+      <div class="label" id="roundLbl">Rodada 1 de 10</div>
+      <div class="row">
+        <div class="price" id="price">R$ 0,0000</div>
+        <div class="date" id="date">—</div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart" aria-label="Gráfico do dólar nos últimos 30 dias" role="img"></canvas></div>
+    </div>
+
+    <div class="question" id="question">No dia seguinte, o dólar <b>SUBIU</b> ou <b>DESCEU</b>?<small id="qSub"></small></div>
+
+    <div class="card result" id="result">
+      <div class="badge" id="badge">✓</div>
+      <div style="flex:1;min-width:0">
+        <div class="t" id="resTitle">Acertou!</div>
+        <div class="s" id="resSub"></div>
+      </div>
+    </div>
+
+    <div class="actions" id="guessBtns">
+      <button class="btn-up" id="btnUp"><span class="ico">▲</span>SUBIU</button>
+      <button class="btn-down" id="btnDown"><span class="ico">▼</span>DESCEU</button>
+    </div>
+    <button class="btn-primary" id="btnNext" style="display:none;margin-top:auto">Próxima rodada</button>
+  </section>
+
+  <!-- Fim -->
+  <section class="screen" id="scrEnd">
+    <div class="card hero">
+      <div style="color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.8px">Placar final</div>
+      <div class="score"><b id="finalScore">0</b><span>/10</span></div>
+      <p id="finalMsg"></p>
+      <div id="newRec"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">Recorde</div><div class="v" id="bestVal">0/10</div></div>
+      <div class="stat"><div class="k">Aproveitamento</div><div class="v" id="pctVal">0%</div></div>
+    </div>
+    <div class="progress" id="progressEnd" style="margin-top:4px"></div>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+      <button class="btn-primary" id="btnAgain">Jogar de novo</button>
+    </div>
+  </section>
+
+  <footer>Jogo educativo — não é previsão nem recomendação de investimento.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var API = "https://economia.awesomeapi.com.br/json/daily/USD-BRL/365";
+  var ROUNDS = 10, WINDOW = 30, REC_KEY = "sobeoudesce_fintech_recorde";
+  var COLORS = {up:"#22c55e", down:"#f43f5e", line:"#a48bff", grid:"rgba(255,255,255,.05)", tick:"#6b7386"};
+
+  var $ = function(id){ return document.getElementById(id); };
+  var series = [];      // [{date: Date, value: Number}] em ordem cronológica
+  var state = null;     // estado da partida
+
+  // ---------- Recorde (localStorage protegido) ----------
+  function getBest(){
+    try { var v = parseInt(localStorage.getItem(REC_KEY), 10); return isNaN(v) ? 0 : v; }
+    catch(e){ return 0; }
+  }
+  function setBest(v){ try { localStorage.setItem(REC_KEY, String(v)); } catch(e){} }
+
+  // ---------- Formatação ----------
+  function brl(v){ return "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:4, maximumFractionDigits:4}); }
+  function pct(v){ return (v>0?"+":"") + v.toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2}) + "%"; }
+  function fmtDate(d, long){
+    return d.toLocaleDateString("pt-BR", long ? {weekday:"short", day:"2-digit", month:"short", year:"numeric"} : {day:"2-digit", month:"2-digit"});
+  }
+
+  // ---------- Dados ----------
+  function fetchWithTimeout(url, ms){
+    return new Promise(function(resolve, reject){
+      var ctrl = ("AbortController" in window) ? new AbortController() : null;
+      var t = setTimeout(function(){ if(ctrl) ctrl.abort(); reject(new Error("timeout")); }, ms);
+      fetch(url, ctrl ? {signal: ctrl.signal} : {}).then(function(r){
+        clearTimeout(t);
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }).then(resolve, function(e){ clearTimeout(t); reject(e); });
+    });
+  }
+
+  function parseApi(json){
+    if(!Array.isArray(json)) throw new Error("formato inesperado");
+    var byDay = {};
+    json.forEach(function(it){
+      var ts = parseInt(it.timestamp, 10), v = parseFloat(it.bid);
+      if(!ts || !isFinite(v) || v <= 0) return;
+      var d = new Date(ts * 1000);
+      var key = d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
+      if(!byDay[key] || byDay[key].ts < ts) byDay[key] = {ts: ts, date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), value: v};
+    });
+    var arr = Object.keys(byDay).map(function(k){ return byDay[k]; });
+    arr.sort(function(a,b){ return a.ts - b.ts; });
+    if(arr.length < WINDOW + 15) throw new Error("poucos dados");
+    return arr.map(function(x){ return {date: x.date, value: x.value}; });
+  }
+
+  // Passeio aleatório com reversão à média, preso entre 4,80 e 6,20 (só dias úteis)
+  function simulate(){
+    var out = [], v = 5.2 + Math.random()*0.5, mean = 5.5;
+    var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - 365);
+    var trend = 0;
+    for(var i = 0; i < 365; i++){
+      d.setDate(d.getDate() + 1);
+      var wd = d.getDay(); if(wd === 0 || wd === 6) continue;
+      if(Math.random() < 0.05) trend = (Math.random() - 0.5) * 0.004;
+      var shock = (Math.random() + Math.random() + Math.random() - 1.5) * 0.012; // ~0,7% de vol. diária
+      v = v * (1 + shock + trend) + (mean - v) * 0.01;
+      v = Math.min(6.2, Math.max(4.8, v));
+      out.push({date: new Date(d), value: Math.round(v * 10000) / 10000});
+    }
+    return out;
+  }
+
+  function loadData(){
+    return fetchWithTimeout(API, 8000).then(parseApi).then(function(arr){
+      return {data: arr, simulated: false};
+    }).catch(function(){
+      return {data: simulate(), simulated: true};
+    });
+  }
+
+  // ---------- Telas ----------
+  function show(id){
+    ["scrLoading","scrIntro","scrGame","scrEnd"].forEach(function(s){ $(s).classList.toggle("active", s === id); });
+    window.scrollTo(0,0);
+  }
+
+  function renderProgress(el){
+    el.innerHTML = "";
+    for(var i = 0; i < ROUNDS; i++){
+      var s = document.createElement("span");
+      var r = state.results[i];
+      if(r === true) s.className = "ok";
+      else if(r === false) s.className = "no";
+      else if(i === state.round && el.id === "progress") s.className = "cur";
+      el.appendChild(s);
+    }
+  }
+
+  // ---------- Partida ----------
+  function pickDays(){
+    // Índices válidos: precisa de 29 dias antes (janela de 30 terminando no dia sorteado) e 1 depois, e variação ≠ 0
+    var valid = [];
+    for(var i = WINDOW - 1; i < series.length - 1; i++){
+      if(Math.abs(series[i+1].value - series[i].value) > 1e-9) valid.push(i);
+    }
+    for(var j = valid.length - 1; j > 0; j--){ var k = Math.floor(Math.random()*(j+1)); var t = valid[j]; valid[j] = valid[k]; valid[k] = t; }
+    return valid.slice(0, ROUNDS);
+  }
+
+  function startGame(){
+    state = {days: pickDays(), round: 0, score: 0, results: [], locked: false};
+    show("scrGame");
+    startRound();
+  }
+
+  function startRound(){
+    var idx = state.days[state.round];
+    var win = series.slice(idx - WINDOW + 1, idx + 1);
+    var cur = series[idx];
+    state.locked = false;
+
+    $("roundLbl").textContent = "Rodada " + (state.round + 1) + " de " + ROUNDS;
+    $("price").textContent = brl(cur.value);
+    $("date").textContent = fmtDate(cur.date, true);
+    var first = win[0].value, d30 = (cur.value / first - 1) * 100;
+    $("qSub").innerHTML = "Nos últimos 30 dias: <span class='chg " + (d30 >= 0 ? "up" : "down") + "'>" + pct(d30) + "</span>";
+    $("question").style.display = "";
+    $("result").classList.remove("show");
+    $("guessBtns").style.display = "";
+    $("btnUp").disabled = $("btnDown").disabled = false;
+    $("btnNext").style.display = "none";
+    renderProgress($("progress"));
+    drawChart(win);
+  }
+
+  // ---------- Gráfico próprio em canvas (sem dependências) ----------
+  var cv = { labels: [], values: [], n: 0, prog: 0, reveal: null, min: 0, max: 1 };
+  function rangeOf(arr){
+    var mn = Math.min.apply(null, arr), mx = Math.max.apply(null, arr), pad = Math.max((mx - mn) * 0.12, 0.01);
+    return [mn - pad, mx + pad];
+  }
+  function drawChart(win){
+    cv.labels = win.map(function(p){ return fmtDate(p.date); });
+    cv.values = win.map(function(p){ return p.value; });
+    cv.n = cv.values.length; cv.reveal = null; cv.prog = 0;
+    var r = rangeOf(cv.values); cv.min = r[0]; cv.max = r[1];
+    var start = null, dur = reduceMotion() ? 0 : 750;
+    function step(ts){
+      if(start === null) start = ts;
+      cv.prog = dur ? Math.min(1, (ts - start) / dur) : 1;
+      render();
+      if(cv.prog < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function reduceMotion(){ return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+
+  function render(){
+    var canvas = $("chart"), box = canvas.parentNode;
+    var w = box.clientWidth, h = box.clientHeight, dpr = window.devicePixelRatio || 1;
+    if(canvas.width !== Math.round(w*dpr) || canvas.height !== Math.round(h*dpr)){
+      canvas.width = Math.round(w*dpr); canvas.height = Math.round(h*dpr);
+      canvas.style.width = w + "px"; canvas.style.height = h + "px";
+    }
+    var g = canvas.getContext("2d");
+    g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,w,h);
+    var padL = 4, padR = 46, padT = 10, padB = 22;
+    var slots = cv.n;  // reserva espaço para o dia seguinte desde o início
+    var X = function(i){ return padL + (w - padL - padR) * (i / slots); };
+    var Y = function(v){ return padT + (h - padT - padB) * (1 - (v - cv.min) / (cv.max - cv.min)); };
+    g.font = "11px -apple-system,Segoe UI,Roboto,sans-serif";
+
+    // grade + eixo Y
+    g.textAlign = "left"; g.textBaseline = "middle";
+    for(var k = 0; k <= 4; k++){
+      var v = cv.min + (cv.max - cv.min) * (k / 4), y = Y(v);
+      g.strokeStyle = COLORS.grid; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(padL, y); g.lineTo(w - padR + 4, y); g.stroke();
+      g.fillStyle = COLORS.tick;
+      g.fillText(v.toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2}), w - padR + 8, y);
+    }
+    // eixo X
+    g.textBaseline = "alphabetic";
+    [0, 10, 20, cv.n - 1].forEach(function(i, j){
+      if(j === 3 && cv.reveal) return;  // dá lugar ao rótulo do dia revelado
+      g.textAlign = j === 0 ? "left" : (j === 3 ? "right" : "center");
+      g.fillStyle = COLORS.tick; g.fillText(cv.labels[i], j === 3 ? X(i) + 6 : X(i), h - 5);
+    });
+    if(cv.reveal){ g.textAlign = "right"; g.globalAlpha = cv.reveal.t; g.fillStyle = cv.reveal.up ? COLORS.up : COLORS.down; g.fillText(cv.reveal.label, X(cv.n) + 4, h - 5); g.globalAlpha = 1; }
+
+    // linha principal (desenhada progressivamente)
+    var lastX = padL + (X(cv.n - 1) - padL) * cv.prog;
+    g.save(); g.beginPath(); g.rect(0, 0, lastX + 1, h); g.clip();
+    var grad = g.createLinearGradient(0, padT, 0, h - padB);
+    grad.addColorStop(0, "rgba(164,139,255,.30)"); grad.addColorStop(1, "rgba(164,139,255,0)");
+    g.beginPath(); g.moveTo(X(0), Y(cv.values[0]));
+    for(var i = 1; i < cv.n; i++) g.lineTo(X(i), Y(cv.values[i]));
+    g.lineTo(X(cv.n - 1), h - padB); g.lineTo(X(0), h - padB); g.closePath();
+    g.fillStyle = grad; g.fill();
+    g.beginPath(); g.moveTo(X(0), Y(cv.values[0]));
+    for(i = 1; i < cv.n; i++) g.lineTo(X(i), Y(cv.values[i]));
+    g.strokeStyle = COLORS.line; g.lineWidth = 2.5; g.lineJoin = "round"; g.lineCap = "round"; g.stroke();
+    g.restore();
+
+    var lx = X(cv.n - 1), ly = Y(cv.values[cv.n - 1]);
+    if(cv.prog >= 1){
+      // linha guia do último preço
+      g.setLineDash([3,4]); g.strokeStyle = "rgba(255,255,255,.18)"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(padL, ly); g.lineTo(w - padR + 4, ly); g.stroke(); g.setLineDash([]);
+    }
+    // segmento revelado
+    if(cv.reveal){
+      var col = cv.reveal.up ? COLORS.up : COLORS.down;
+      var nx = lx + (X(cv.n) - lx) * cv.reveal.t, ny = Y(cv.reveal.value);
+      g.setLineDash([6,4]); g.strokeStyle = col; g.lineWidth = 2.5;
+      g.beginPath(); g.moveTo(lx, ly); g.lineTo(nx, ny); g.stroke(); g.setLineDash([]);
+      g.fillStyle = col; g.globalAlpha = .25; g.beginPath(); g.arc(nx, ny, 10, 0, Math.PI*2); g.fill();
+      g.globalAlpha = 1; g.beginPath(); g.arc(nx, ny, 5, 0, Math.PI*2); g.fill();
+    }
+    if(cv.prog >= 1){
+      g.fillStyle = "#fff"; g.beginPath(); g.arc(lx, ly, 4.5, 0, Math.PI*2); g.fill();
+    }
+  }
+  window.addEventListener("resize", function(){ if(cv.n) render(); });
+
+  // Revela o dia seguinte: a linha avança e o ponto "cresce" do valor anterior até o real
+  function animateReveal(cur, next, done){
+    var from = [cv.min, cv.max], to = rangeOf(cv.values.concat([next.value]));
+    cv.reveal = { up: next.value > cur.value, value: cur.value, t: 0, label: fmtDate(next.date) };
+    var start = null, dur = reduceMotion() ? 0 : 1000;
+    function ease(t){ return 1 - Math.pow(1 - t, 3); }
+    function step(ts){
+      if(start === null) start = ts;
+      var t = dur ? Math.min(1, (ts - start) / dur) : 1, e = ease(t);
+      cv.min = from[0] + (to[0] - from[0]) * e; cv.max = from[1] + (to[1] - from[1]) * e;
+      cv.reveal.t = e; cv.reveal.value = cur.value + (next.value - cur.value) * e;
+      $("price").textContent = brl(cv.reveal.value);
+      render();
+      if(t < 1) requestAnimationFrame(step); else done();
+    }
+    requestAnimationFrame(step);
+  }
+
+  function guess(up){
+    if(state.locked) return;
+    state.locked = true;
+    $("btnUp").disabled = $("btnDown").disabled = true;
+
+    var idx = state.days[state.round];
+    var cur = series[idx], next = series[idx + 1];
+    var wentUp = next.value > cur.value;
+    var change = (next.value / cur.value - 1) * 100;
+    var hit = (up === wentUp);
+    state.results[state.round] = hit;
+    if(hit) state.score++;
+
+    animateReveal(cur, next, function(){
+      $("price").textContent = brl(next.value);
+      $("date").textContent = fmtDate(next.date, true);
+      $("badge").className = "badge " + (hit ? "ok" : "no");
+      $("badge").textContent = hit ? "✓" : "✕";
+      $("resTitle").textContent = hit ? "Acertou!" : "Errou!";
+      $("resSub").innerHTML = "O dólar <b>" + (wentUp ? "subiu" : "desceu") + "</b>: " +
+        brl(cur.value) + " → " + brl(next.value) + " <span class='chg " + (wentUp ? "up" : "down") + "'>(" + pct(change) + ")</span>";
+      $("question").style.display = "none";
+      $("guessBtns").style.display = "none";
+      $("result").classList.add("show");
+      $("btnNext").textContent = (state.round + 1 >= ROUNDS) ? "Ver placar final" : "Próxima rodada";
+      $("btnNext").style.display = "";
+      renderProgress($("progress"));
+      if(navigator.vibrate){ try{ navigator.vibrate(hit ? 30 : [40,60,40]); }catch(e){} }
+    });
+  }
+
+  function nextRound(){
+    state.round++;
+    if(state.round >= ROUNDS) return endGame();
+    startRound();
+  }
+
+  function endGame(){
+    var best = getBest(), isRec = state.score > best;
+    if(isRec){ best = state.score; setBest(best); }
+    $("finalScore").textContent = state.score;
+    $("bestVal").textContent = best + "/10";
+    $("hdrBest").textContent = best;
+    $("pctVal").textContent = Math.round(state.score / ROUNDS * 100) + "%";
+    var msg;
+    if(state.score >= 9) msg = "Impressionante! Mas lembre: até os profissionais erram muito no curto prazo.";
+    else if(state.score >= 7) msg = "Mandou bem! Acima do que se esperaria no puro chute.";
+    else if(state.score >= 5) msg = "Perto dos 50% — o câmbio diário é quase uma moeda jogada pro alto.";
+    else msg = "O mercado é imprevisível no dia a dia. Tente de novo!";
+    $("finalMsg").textContent = msg;
+    $("newRec").innerHTML = isRec ? "<span class='newrec'>★ Novo recorde!</span>" : "";
+    renderProgress($("progressEnd"));
+    show("scrEnd");
+  }
+
+  // ---------- Eventos ----------
+  $("btnStart").addEventListener("click", startGame);
+  $("btnAgain").addEventListener("click", startGame);
+  $("btnUp").addEventListener("click", function(){ guess(true); });
+  $("btnDown").addEventListener("click", function(){ guess(false); });
+  $("btnNext").addEventListener("click", nextRound);
+  document.addEventListener("keydown", function(e){
+    if(!$("scrGame").classList.contains("active")) return;
+    if(!state.locked && (e.key === "ArrowUp" || e.key === "s")) guess(true);
+    else if(!state.locked && (e.key === "ArrowDown" || e.key === "d")) guess(false);
+    else if(state.locked && e.key === "Enter" && e.target.tagName !== "BUTTON" && $("btnNext").style.display !== "none") nextRound();
+  });
+
+  // ---------- Início ----------
+  $("hdrBest").textContent = getBest();
+  loadData().then(function(res){
+    series = res.data;
+    if(res.simulated) $("notice").classList.add("show");
+    show("scrIntro");
+  });
+})();
+</script>
+</body>
+</html>
