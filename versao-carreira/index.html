@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>Sobe ou Desce? — Carreira</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0b1220;
+    --card: #131c2e;
+    --card2: #1a2540;
+    --line: #26324d;
+    --text: #e8eefc;
+    --muted: #8fa0c4;
+    --up: #22c55e;
+    --up-dark: #15803d;
+    --down: #ef4444;
+    --down-dark: #b91c1c;
+    --gold: #fbbf24;
+    --accent: #60a5fa;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(circle at 50% -20%, #1b2a4d 0%, var(--bg) 60%);
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.35;
+  }
+  .app {
+    max-width: 520px;
+    margin: 0 auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: max(10px, env(safe-area-inset-top)) 16px max(8px, env(safe-area-inset-bottom));
+  }
+  .screen { display: none; flex: 1; flex-direction: column; gap: 10px; }
+  .screen.active { display: flex; }
+  h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; text-align: center; }
+  h1 .up { color: var(--up); }
+  h1 .down { color: var(--down); }
+  .sub { text-align: center; color: var(--muted); margin: 0; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px;
+  }
+  .muted { color: var(--muted); }
+  .small { font-size: 0.85rem; }
+
+  /* Botões */
+  button { font: inherit; cursor: pointer; border: 0; color: inherit; }
+  .btn {
+    width: 100%;
+    min-height: 56px;
+    border-radius: 14px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    background: var(--accent);
+    color: #0b1220;
+    transition: transform .08s ease, filter .15s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { filter: grayscale(0.8) brightness(0.6); cursor: default; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+
+  /* Tela inicial */
+  #start { justify-content: center; gap: 16px; }
+  .rules { margin: 0; padding-left: 20px; }
+  .rules li { margin: 6px 0; }
+  .ladder { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
+  .ladder span {
+    font-size: 0.75rem; padding: 4px 8px; border-radius: 999px;
+    background: var(--card2); color: var(--muted); border: 1px solid var(--line);
+  }
+  .record { text-align: center; color: var(--gold); font-weight: 600; min-height: 1.3em; }
+  .loading { text-align: center; color: var(--muted); }
+
+  /* Barra de status do jogo */
+  .hud {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 4px 10px;
+  }
+  .hud .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .money { font-size: 1.7rem; font-weight: 800; font-variant-numeric: tabular-nums; transition: color .3s; }
+  .money.flash-up { color: var(--up); }
+  .money.flash-down { color: var(--down); }
+  .delta { font-size: 0.9rem; font-weight: 700; margin-left: 6px; opacity: 0; transition: opacity .3s; }
+  .delta.show { opacity: 1; }
+  .round-box { text-align: right; }
+  .round { font-size: 1.2rem; font-weight: 800; }
+  .title-badge {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    font-size: 0.9rem;
+  }
+  .title-badge b { color: var(--gold); }
+  .promo { color: var(--gold); font-weight: 700; font-size: 0.8rem; opacity: 0; transition: opacity .3s; }
+  .promo.show { opacity: 1; }
+  .promo.demo { color: var(--down); }
+  .wealth-bar { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: var(--card2); overflow: hidden; }
+  .wealth-bar div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--gold)); transition: width .6s ease; }
+
+  /* Gráfico */
+  .chart-card { padding: 10px 8px 6px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 6px 4px; font-size: 0.85rem; }
+  .chart-head b { font-size: 1rem; }
+  .chart-wrap { position: relative; height: 34vh; min-height: 190px; max-height: 320px; }
+  .chart-wrap.shake { animation: shake .4s; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+  .question { text-align: center; font-weight: 700; font-size: 1.1rem; margin: 2px 0 0; }
+
+  /* Seleção de aposta */
+  .bet-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .bet-opt {
+    min-height: 48px; border-radius: 12px; background: var(--card2);
+    border: 2px solid var(--line); font-weight: 700; font-size: 0.95rem;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;
+  }
+  .bet-opt small { font-weight: 500; font-size: 0.7rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .bet-opt.sel { border-color: var(--gold); background: #2a2a1a; }
+  .bet-opt:disabled { opacity: .5; cursor: default; }
+  .bet-label { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); }
+  .bet-label b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .guess-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .guess {
+    min-height: 74px; border-radius: 16px; font-size: 1.3rem; font-weight: 800; color: #fff;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: transform .08s ease, filter .15s, opacity .2s;
+  }
+  .guess:active { transform: scale(0.96); }
+  .guess.up { background: linear-gradient(180deg, var(--up), var(--up-dark)); }
+  .guess.down { background: linear-gradient(180deg, var(--down), var(--down-dark)); }
+  .guess:disabled { cursor: default; opacity: .35; }
+  .guess.picked { opacity: 1; outline: 3px solid #fff; outline-offset: 2px; }
+  .guess .arrow { font-size: 1.6rem; }
+
+  /* Resultado */
+  .result {
+    display: none; text-align: center; padding: 12px;
+    border-radius: 16px; border: 2px solid var(--line); background: var(--card);
+    animation: pop .35s ease;
+  }
+  .result.show { display: block; }
+  .result.win { border-color: var(--up); background: #0f2a1c; }
+  .result.lose { border-color: var(--down); background: #2c1215; }
+  .result .big { font-size: 1.4rem; font-weight: 800; }
+  .result .detail { margin-top: 4px; color: var(--muted); font-size: 0.95rem; }
+  .result .detail b { color: var(--text); }
+  .result .btn { margin-top: 10px; }
+  @keyframes pop { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .notice {
+    font-size: 0.75rem; color: var(--muted); text-align: center;
+    background: var(--card2); border: 1px dashed var(--line); border-radius: 10px; padding: 4px 8px;
+  }
+  .hidden { display: none !important; }
+
+  /* Tela final */
+  #end { justify-content: center; gap: 14px; text-align: center; }
+  .final-money { font-size: 2.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .final-title { font-size: 1.3rem; font-weight: 800; color: var(--gold); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: var(--card2); border-radius: 12px; padding: 10px 4px; }
+  .stat .v { font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .newrec { color: var(--gold); font-weight: 800; animation: pop .5s ease; }
+  .end-chart { position: relative; height: 150px; }
+
+  footer {
+    text-align: center; font-size: 0.75rem; color: var(--muted);
+    padding: 10px 0 2px; margin-top: auto;
+  }
+
+  @media (max-height: 700px) {
+    .chart-wrap { height: 28vh; min-height: 160px; }
+    .guess { min-height: 62px; }
+    .money { font-size: 1.45rem; }
+    h1 { font-size: 1.7rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TELA INICIAL -->
+  <section id="start" class="screen active">
+    <h1>Sobe <span class="up">▲</span> ou Desce <span class="down">▼</span>?</h1>
+    <p class="sub">Modo Carreira — do estágio à Faria Lima</p>
+    <div class="card">
+      <ul class="rules">
+        <li>Você começa com <b>R$ 1.000</b> de patrimônio.</li>
+        <li>Veja o gráfico do dólar (USD-BRL) nos 30 dias anteriores.</li>
+        <li>Escolha quanto apostar e chute: no dia seguinte o dólar <b>subiu</b> ou <b>desceu</b>?</li>
+        <li>Acertou? Ganha o valor apostado. Errou? Perde.</li>
+        <li>São <b>10 rodadas</b>. Quanto mais patrimônio, maior o seu cargo!</li>
+      </ul>
+      <div class="ladder" id="ladder"></div>
+    </div>
+    <div class="record" id="recordStart"></div>
+    <div class="loading" id="loading">Carregando cotações…</div>
+    <button class="btn" id="btnStart" disabled>Começar carreira</button>
+    <div class="notice hidden" id="noticeStart"></div>
+  </section>
+
+  <!-- TELA DO JOGO -->
+  <section id="game" class="screen">
+    <div class="card hud">
+      <div>
+        <div class="label">Patrimônio</div>
+        <div><span class="money" id="money">R$ 1.000,00</span><span class="delta" id="delta"></span></div>
+      </div>
+      <div class="round-box">
+        <div class="label">Rodada</div>
+        <div class="round" id="round">1/10</div>
+      </div>
+      <div class="title-badge">
+        <span>Cargo: <b id="title">Estagiário</b></span>
+        <span class="promo" id="promo"></span>
+      </div>
+      <div class="wealth-bar" title="Progresso até o próximo cargo"><div id="wealthBar"></div></div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="chart-head">
+        <span class="muted" id="chartPeriod">—</span>
+        <span>Último: <b id="lastValue">—</b></span>
+      </div>
+      <div class="chart-wrap" id="chartWrap"><canvas id="chart" aria-label="Gráfico do dólar nos últimos 30 dias" role="img"></canvas></div>
+    </div>
+
+    <p class="question" id="question">No dia seguinte, o dólar SUBIU ou DESCEU?</p>
+
+    <div id="betArea">
+      <div class="bet-label"><span>Quanto apostar?</span><span>Aposta: <b id="betValue">—</b></span></div>
+      <div class="bet-row" id="betRow"></div>
+    </div>
+
+    <div class="guess-row">
+      <button class="guess up" id="btnUp"><span class="arrow">▲</span> SUBIU</button>
+      <button class="guess down" id="btnDown"><span class="arrow">▼</span> DESCEU</button>
+    </div>
+
+    <div class="result" id="result">
+      <div class="big" id="resBig"></div>
+      <div class="detail" id="resDetail"></div>
+      <button class="btn" id="btnNext">Próxima rodada</button>
+    </div>
+
+    <div class="notice hidden" id="noticeGame"></div>
+  </section>
+
+  <!-- TELA FINAL -->
+  <section id="end" class="screen">
+    <h1>Fim do expediente!</h1>
+    <div class="card">
+      <div class="muted small">Patrimônio final</div>
+      <div class="final-money" id="finalMoney">—</div>
+      <div class="final-title" id="finalTitle">—</div>
+      <div class="muted small" id="finalMsg"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="stHits">—</div><div class="k">Acertos</div></div>
+      <div class="stat"><div class="v" id="stReturn">—</div><div class="k">Retorno</div></div>
+      <div class="stat"><div class="v" id="stPeak">—</div><div class="k">Pico</div></div>
+    </div>
+    <div class="card">
+      <div class="muted small" style="text-align:left;margin-bottom:4px">Evolução do patrimônio</div>
+      <div class="end-chart"><canvas id="endChart" aria-label="Evolução do patrimônio" role="img"></canvas></div>
+    </div>
+    <div id="newRecord" class="newrec hidden">🏆 Novo recorde!</div>
+    <div class="record" id="recordEnd"></div>
+    <button class="btn" id="btnAgain">Jogar de novo</button>
+  </section>
+
+  <footer>Jogo educativo — não é previsão nem recomendação de investimento.</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Configurações ----------
+  var API_URL = 'https://economia.awesomeapi.com.br/json/daily/USD-BRL/365';
+  var ROUNDS = 10;
+  var WINDOW = 30;            // dias mostrados no gráfico
+  var START_MONEY = 1000;
+  var RECORD_KEY = 'sobeOuDesce.carreira.recorde';
+  var BET_OPTIONS = [
+    { label: '10%', pct: 0.10 },
+    { label: '25%', pct: 0.25 },
+    { label: '50%', pct: 0.50 },
+    { label: 'Tudo', pct: 1.00 }
+  ];
+  // Cargos por patrimônio mínimo
+  var TITLES = [
+    { min: 0,      name: 'Desempregado',            emoji: '📦' },
+    { min: 1,      name: 'Estagiário em apuros',    emoji: '😰' },
+    { min: 600,    name: 'Estagiário',              emoji: '🎒' },
+    { min: 1300,   name: 'Analista Júnior',         emoji: '📊' },
+    { min: 1800,   name: 'Analista Pleno',          emoji: '💼' },
+    { min: 2600,   name: 'Gerente de Mesa',         emoji: '📈' },
+    { min: 4000,   name: 'Diretor de Investimentos',emoji: '🏦' },
+    { min: 7000,   name: 'Sócio do Banco',          emoji: '🥂' },
+    { min: 12000,  name: 'Tubarão da Faria Lima',   emoji: '🦈' }
+  ];
+
+  // ---------- Estado ----------
+  var series = [];      // [{date: Date, value: Number}] em ordem cronológica
+  var usingFallback = false;
+  var state = null;
+  var chart = null;
+  var endChart = null;
+  var betIndex = 1;     // 25% por padrão
+
+  // ---------- Utilidades ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  var brl4 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  function fmtMoney(v) { return brl.format(v); }
+  function fmtRate(v) { return 'R$ ' + brl4.format(v); }
+  function fmtPct(v) {
+    var s = (v >= 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%';
+    return s;
+  }
+  function fmtDate(d) {
+    return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function fmtDateFull(d) { return fmtDate(d) + '/' + d.getFullYear(); }
+  function round2(v) { return Math.round(v * 100) / 100; }
+
+  function titleFor(money) {
+    var t = TITLES[0];
+    for (var i = 0; i < TITLES.length; i++) if (money >= TITLES[i].min) t = TITLES[i];
+    return t;
+  }
+  function titleIndex(money) {
+    var idx = 0;
+    for (var i = 0; i < TITLES.length; i++) if (money >= TITLES[i].min) idx = i;
+    return idx;
+  }
+
+  function loadRecord() {
+    try {
+      var raw = localStorage.getItem(RECORD_KEY);
+      if (!raw) return null;
+      var r = JSON.parse(raw);
+      return (r && typeof r.money === 'number') ? r : null;
+    } catch (e) { return null; }
+  }
+  function saveRecord(r) {
+    try { localStorage.setItem(RECORD_KEY, JSON.stringify(r)); } catch (e) { /* sem armazenamento */ }
+  }
+  function recordText(r) {
+    if (!r) return '';
+    return '🏆 Recorde: ' + fmtMoney(r.money) + ' — ' + titleFor(r.money).name;
+  }
+
+  function show(screenId) {
+    ['start', 'game', 'end'].forEach(function (id) {
+      $(id).classList.toggle('active', id === screenId);
+    });
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- Dados ----------
+  function fetchWithTimeout(url, ms) {
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, ms);
+    return fetch(url, ctrl ? { signal: ctrl.signal } : {}).finally(function () { clearTimeout(timer); });
+  }
+
+  function parseApi(json) {
+    if (!Array.isArray(json)) throw new Error('formato inesperado');
+    var byDay = {};
+    json.forEach(function (item) {
+      var ts = parseInt(item.timestamp, 10);
+      var v = parseFloat(item.bid);
+      if (!isFinite(ts) || !isFinite(v) || v <= 0) return;
+      var d = new Date(ts * 1000);
+      var key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+      // mantém o registro mais recente de cada dia
+      if (!byDay[key] || byDay[key].ts < ts) byDay[key] = { ts: ts, date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), value: v };
+    });
+    var arr = Object.keys(byDay).map(function (k) { return byDay[k]; });
+    arr.sort(function (a, b) { return a.ts - b.ts; });
+    return arr.map(function (x) { return { date: x.date, value: x.value }; });
+  }
+
+  // Passeio aleatório realista entre R$ 4,80 e R$ 6,20, só dias úteis
+  function simulatedSeries() {
+    var out = [];
+    var d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 1);
+    var days = [];
+    while (days.length < 260) {
+      var wd = d.getDay();
+      if (wd !== 0 && wd !== 6) days.unshift(new Date(d));
+      d.setDate(d.getDate() - 1);
+    }
+    var v = 5.0 + Math.random() * 0.8;
+    var drift = 0;
+    days.forEach(function (day) {
+      drift = drift * 0.9 + (Math.random() - 0.5) * 0.002;
+      var change = drift + gaussian() * 0.0075; // ~0,75% de volatilidade diária
+      v = v * (1 + change);
+      if (v < 4.80) v = 4.80 + Math.random() * 0.03;
+      if (v > 6.20) v = 6.20 - Math.random() * 0.03;
+      out.push({ date: day, value: Math.round(v * 10000) / 10000 });
+    });
+    return out;
+  }
+  function gaussian() {
+    var u = 0, w = 0;
+    while (u === 0) u = Math.random();
+    while (w === 0) w = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * w);
+  }
+
+  function loadData() {
+    return fetchWithTimeout(API_URL, 8000)
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (json) {
+        var s = parseApi(json);
+        if (s.length < WINDOW + ROUNDS + 5) throw new Error('poucos dados');
+        series = s;
+        usingFallback = false;
+      })
+      .catch(function () {
+        series = simulatedSeries();
+        usingFallback = true;
+      });
+  }
+
+  // ---------- Partida ----------
+  function newGame() {
+    // escolhe dias distintos (índice do "último dia mostrado")
+    var minIdx = WINDOW - 1;
+    var maxIdx = series.length - 2;
+    var pool = [];
+    for (var i = minIdx; i <= maxIdx; i++) pool.push(i);
+    for (var j = pool.length - 1; j > 0; j--) {
+      var k = Math.floor(Math.random() * (j + 1));
+      var t = pool[j]; pool[j] = pool[k]; pool[k] = t;
+    }
+    state = {
+      days: pool.slice(0, ROUNDS),
+      round: 0,
+      money: START_MONEY,
+      history: [START_MONEY],
+      hits: 0,
+      peak: START_MONEY,
+      answered: false
+    };
+    betIndex = 1;
+    updateHud(false);
+    show('game');
+    startRound();
+  }
+
+  function currentBet() {
+    var b = round2(state.money * BET_OPTIONS[betIndex].pct);
+    return Math.min(b, state.money);
+  }
+
+  function renderBets() {
+    var row = $('betRow');
+    row.innerHTML = '';
+    BET_OPTIONS.forEach(function (opt, i) {
+      var b = document.createElement('button');
+      b.className = 'bet-opt' + (i === betIndex ? ' sel' : '');
+      b.type = 'button';
+      b.disabled = state.answered;
+      b.setAttribute('aria-pressed', i === betIndex ? 'true' : 'false');
+      var amount = round2(state.money * opt.pct);
+      b.innerHTML = opt.label + '<small>' + fmtMoney(amount).replace(/,\d\d$/, '') + '</small>';
+      b.addEventListener('click', function () {
+        if (state.answered) return;
+        betIndex = i;
+        renderBets();
+      });
+      row.appendChild(b);
+    });
+    $('betValue').textContent = fmtMoney(currentBet());
+  }
+
+  function updateHud(animateFrom) {
+    var t = titleFor(state.money);
+    var idx = titleIndex(state.money);
+    $('round').textContent = Math.min(state.round + 1, ROUNDS) + '/' + ROUNDS;
+    $('title').textContent = t.emoji + ' ' + t.name;
+    // progresso até o próximo cargo
+    var next = TITLES[idx + 1];
+    var pct = 100;
+    if (next) {
+      var base = TITLES[idx].min;
+      pct = Math.max(0, Math.min(100, (state.money - base) / (next.min - base) * 100));
+      $('wealthBar').parentNode.title = 'Próximo cargo: ' + next.name + ' (' + fmtMoney(next.min) + ')';
+    } else {
+      $('wealthBar').parentNode.title = 'Topo da carreira!';
+    }
+    $('wealthBar').style.width = pct + '%';
+    if (typeof animateFrom === 'number') animateMoney(animateFrom, state.money);
+    else $('money').textContent = fmtMoney(state.money);
+  }
+
+  function animateMoney(from, to) {
+    var el = $('money');
+    var dur = 900, t0 = performance.now();
+    el.classList.remove('flash-up', 'flash-down');
+    if (to > from) el.classList.add('flash-up');
+    else if (to < from) el.classList.add('flash-down');
+    function step(now) {
+      var p = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmtMoney(from + (to - from) * e);
+      if (p < 1) requestAnimationFrame(step);
+      else setTimeout(function () { el.classList.remove('flash-up', 'flash-down'); }, 700);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function startRound() {
+    state.answered = false;
+    var endIdx = state.days[state.round];
+    var slice = series.slice(endIdx - WINDOW + 1, endIdx + 1);
+    var next = series[endIdx + 1];
+    state.cur = { endIdx: endIdx, slice: slice, next: next };
+
+    $('result').classList.remove('show', 'win', 'lose');
+    $('btnUp').disabled = false;
+    $('btnDown').disabled = false;
+    $('btnUp').classList.remove('picked');
+    $('btnDown').classList.remove('picked');
+    $('betArea').classList.remove('hidden');
+    $('question').textContent = 'No dia seguinte, o dólar SUBIU ou DESCEU?';
+    $('delta').classList.remove('show');
+    $('promo').classList.remove('show', 'demo');
+    $('chartPeriod').textContent = fmtDateFull(slice[0].date) + ' a ' + fmtDateFull(slice[slice.length - 1].date);
+    $('lastValue').textContent = fmtRate(slice[slice.length - 1].value);
+
+    updateHud();
+    renderBets();
+    drawChart(slice, next);
+  }
+
+  // ---------- Gráfico ----------
+  function drawChart(slice, next) {
+    var labels = slice.map(function (p) { return fmtDate(p.date); });
+    labels.push('?');
+    var values = slice.map(function (p) { return p.value; });
+    values.push(null);
+    var reveal = slice.map(function () { return null; });
+    reveal[reveal.length - 1] = slice[slice.length - 1].value;
+    reveal.push(null);
+
+    var vals = slice.map(function (p) { return p.value; }).concat([next.value]);
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    var pad = Math.max((max - min) * 0.15, 0.02);
+
+    var cfg = {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'USD-BRL',
+            data: values,
+            borderColor: '#60a5fa',
+            backgroundColor: 'rgba(96,165,250,0.12)',
+            fill: true,
+            borderWidth: 2.5,
+            tension: 0.25,
+            pointRadius: function (ctx) { return ctx.dataIndex === slice.length - 1 ? 5 : 0; },
+            pointBackgroundColor: '#60a5fa',
+            pointHoverRadius: 5
+          },
+          {
+            label: 'Dia seguinte',
+            data: reveal,
+            borderColor: '#fbbf24',
+            borderWidth: 3,
+            borderDash: [6, 4],
+            pointRadius: function (ctx) { return ctx.dataIndex === slice.length ? 7 : 0; },
+            pointBackgroundColor: '#fbbf24',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            fill: false,
+            tension: 0
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 500 },
+        interaction: { intersect: false, mode: 'index' },
+        layout: { padding: { right: 8 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            filter: function (item) { return item.raw !== null && !(item.datasetIndex === 1 && item.dataIndex !== slice.length); },
+            callbacks: {
+              label: function (ctx) { return ' ' + fmtRate(ctx.parsed.y); }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#8fa0c4', maxRotation: 0, autoSkip: true, maxTicksLimit: 6, font: { size: 11 } }
+          },
+          y: {
+            min: min - pad, max: max + pad,
+            grid: { color: 'rgba(143,160,196,0.12)' },
+            ticks: {
+              color: '#8fa0c4', font: { size: 11 }, maxTicksLimit: 5,
+              callback: function (v) { return v.toFixed(2).replace('.', ','); }
+            }
+          }
+        }
+      }
+    };
+
+    if (typeof Chart === 'undefined') {
+      $('chartWrap').innerHTML = '<p class="muted small" style="text-align:center;padding:40px 10px">Não foi possível carregar o gráfico. Últimas cotações: ' +
+        slice.slice(-5).map(function (p) { return fmtDate(p.date) + ' ' + fmtRate(p.value); }).join(' · ') + '</p>';
+      return;
+    }
+    if (chart) chart.destroy();
+    chart = new Chart($('chart'), cfg);
+  }
+
+  function revealChart(next, up) {
+    if (!chart) return;
+    var lastIdx = state.cur.slice.length;
+    var color = up === null ? '#fbbf24' : (up ? '#22c55e' : '#ef4444');
+    var ds = chart.data.datasets[1];
+    ds.borderColor = color;
+    ds.pointBackgroundColor = color;
+    chart.data.labels[lastIdx] = fmtDate(next.date);
+    // começa no valor anterior e "cresce" até o valor real
+    ds.data[lastIdx] = state.cur.slice[lastIdx - 1].value;
+    chart.update('none');
+    ds.data[lastIdx] = next.value;
+    chart.options.animation = { duration: 1100, easing: 'easeOutBack' };
+    chart.update();
+  }
+
+  // ---------- Chute ----------
+  function guess(saysUp) {
+    if (state.answered) return;
+    state.answered = true;
+    var bet = currentBet();
+    var last = state.cur.slice[state.cur.slice.length - 1].value;
+    var next = state.cur.next;
+    var change = (next.value - last) / last * 100;
+    var wentUp = next.value > last ? true : (next.value < last ? false : null);
+
+    $('btnUp').disabled = true;
+    $('btnDown').disabled = true;
+    (saysUp ? $('btnUp') : $('btnDown')).classList.add('picked');
+    renderBets();
+
+    revealChart(next, wentUp);
+
+    var before = state.money;
+    var titleBefore = titleIndex(before);
+    var outcome; // 'win' | 'lose' | 'tie'
+    if (wentUp === null) outcome = 'tie';
+    else if (wentUp === saysUp) outcome = 'win';
+    else outcome = 'lose';
+
+    if (outcome === 'win') { state.money = round2(state.money + bet); state.hits++; }
+    else if (outcome === 'lose') { state.money = round2(Math.max(0, state.money - bet)); }
+    state.history.push(state.money);
+    state.peak = Math.max(state.peak, state.money);
+
+    setTimeout(function () {
+      var res = $('result');
+      var dirTxt = wentUp === null ? 'ficou estável' : (wentUp ? 'SUBIU ▲' : 'DESCEU ▼');
+      if (outcome === 'win') {
+        res.classList.add('win');
+        $('resBig').textContent = '✅ Acertou! +' + fmtMoney(bet);
+      } else if (outcome === 'lose') {
+        res.classList.add('lose');
+        $('resBig').textContent = '❌ Errou! −' + fmtMoney(bet);
+        $('chartWrap').classList.remove('shake');
+        void $('chartWrap').offsetWidth;
+        $('chartWrap').classList.add('shake');
+      } else {
+        $('resBig').textContent = '😐 Empate — aposta devolvida';
+      }
+      $('resDetail').innerHTML = 'Em ' + fmtDateFull(next.date) + ' o dólar <b>' + dirTxt + '</b>: ' +
+        fmtRate(last) + ' → ' + fmtRate(next.value) + ' (<b style="color:' +
+        (change > 0 ? 'var(--up)' : change < 0 ? 'var(--down)' : 'var(--text)') + '">' + fmtPct(change) + '</b>)';
+      $('lastValue').textContent = fmtRate(next.value);
+
+      var delta = state.money - before;
+      var dEl = $('delta');
+      dEl.textContent = delta === 0 ? '' : (delta > 0 ? '+' : '−') + fmtMoney(Math.abs(delta));
+      dEl.style.color = delta > 0 ? 'var(--up)' : 'var(--down)';
+      if (delta !== 0) dEl.classList.add('show');
+
+      var titleAfter = titleIndex(state.money);
+      var promo = $('promo');
+      if (titleAfter > titleBefore) { promo.textContent = '⬆ Promovido!'; promo.classList.add('show'); }
+      else if (titleAfter < titleBefore) { promo.textContent = '⬇ Rebaixado'; promo.classList.add('show', 'demo'); }
+
+      var isLast = state.round >= ROUNDS - 1 || state.money <= 0;
+      $('btnNext').textContent = state.money <= 0 ? 'Faliu! Ver resultado' : (isLast ? 'Ver resultado final' : 'Próxima rodada');
+      $('betArea').classList.add('hidden');
+      res.classList.add('show');
+      updateHud(before);
+      $('round').textContent = (state.round + 1) + '/' + ROUNDS;
+      setTimeout(function () { $('btnNext').focus({ preventScroll: true }); }, 50);
+      res.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 1150);
+  }
+
+  function nextRound() {
+    if (!state.answered) return;
+    if (state.round >= ROUNDS - 1 || state.money <= 0) { endGame(); return; }
+    state.round++;
+    startRound();
+  }
+
+  // ---------- Fim ----------
+  function endGame() {
+    var t = titleFor(state.money);
+    $('finalMoney').textContent = fmtMoney(state.money);
+    $('finalMoney').style.color = state.money > START_MONEY ? 'var(--up)' : (state.money < START_MONEY ? 'var(--down)' : 'var(--text)');
+    $('finalTitle').textContent = t.emoji + ' ' + t.name;
+    var played = state.history.length - 1;
+    $('stHits').textContent = state.hits + '/' + played;
+    $('stReturn').textContent = fmtPct((state.money - START_MONEY) / START_MONEY * 100);
+    $('stPeak').textContent = fmtMoney(state.peak).replace(/,\d\d$/, '');
+
+    var msg;
+    if (state.money <= 0) msg = 'Apostou tudo e perdeu… O RH já preparou sua caixa de papelão.';
+    else if (state.money >= 12000) msg = 'Lenda! Mas lembre: na vida real, sorte não é estratégia.';
+    else if (state.money > START_MONEY) msg = 'Bom trabalho! Seu patrimônio cresceu nesta temporada.';
+    else if (state.money === START_MONEY) msg = 'Terminou no zero a zero. Nem lucro, nem prejuízo.';
+    else msg = 'O mercado não perdoa. Prever o câmbio é muito difícil — até para profissionais.';
+    $('finalMsg').textContent = msg;
+
+    var rec = loadRecord();
+    var isNew = !rec || state.money > rec.money;
+    if (isNew) {
+      rec = { money: state.money, hits: state.hits, date: new Date().toISOString() };
+      saveRecord(rec);
+    }
+    $('newRecord').classList.toggle('hidden', !isNew);
+    $('recordEnd').textContent = recordText(rec);
+    $('recordStart').textContent = recordText(rec);
+
+    show('end');
+    drawEndChart();
+  }
+
+  function drawEndChart() {
+    if (typeof Chart === 'undefined') return;
+    if (endChart) endChart.destroy();
+    var h = state.history;
+    endChart = new Chart($('endChart'), {
+      type: 'line',
+      data: {
+        labels: h.map(function (_, i) { return i === 0 ? 'Início' : 'R' + i; }),
+        datasets: [{
+          data: h,
+          borderColor: '#fbbf24',
+          backgroundColor: 'rgba(251,191,36,0.12)',
+          fill: true,
+          tension: 0.2,
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointBackgroundColor: h.map(function (v, i) {
+            if (i === 0) return '#8fa0c4';
+            return v > h[i - 1] ? '#22c55e' : (v < h[i - 1] ? '#ef4444' : '#8fa0c4');
+          })
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 900 },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function (c) { return ' ' + fmtMoney(c.parsed.y); } } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#8fa0c4', font: { size: 10 } } },
+          y: {
+            grid: { color: 'rgba(143,160,196,0.12)' },
+            ticks: {
+              color: '#8fa0c4', font: { size: 10 }, maxTicksLimit: 4,
+              callback: function (v) { return 'R$ ' + Math.round(v).toLocaleString('pt-BR'); }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // ---------- Inicialização ----------
+  function init() {
+    var ladder = $('ladder');
+    TITLES.slice(2).forEach(function (t) {
+      var s = document.createElement('span');
+      s.textContent = t.emoji + ' ' + t.name;
+      ladder.appendChild(s);
+    });
+    $('recordStart').textContent = recordText(loadRecord());
+
+    $('btnStart').addEventListener('click', newGame);
+    $('btnUp').addEventListener('click', function () { guess(true); });
+    $('btnDown').addEventListener('click', function () { guess(false); });
+    $('btnNext').addEventListener('click', nextRound);
+    $('btnAgain').addEventListener('click', newGame);
+    document.addEventListener('keydown', function (e) {
+      if (!$('game').classList.contains('active')) return;
+      if (!state.answered && (e.key === 'ArrowUp')) guess(true);
+      else if (!state.answered && (e.key === 'ArrowDown')) guess(false);
+      else if (state.answered && e.key === 'Enter' && document.activeElement !== $('btnNext')) nextRound();
+    });
+
+    loadData().then(function () {
+      $('loading').classList.add('hidden');
+      $('btnStart').disabled = false;
+      if (usingFallback) {
+        var txt = 'Não foi possível buscar as cotações reais agora — usando dados simulados.';
+        $('noticeStart').textContent = txt;
+        $('noticeStart').classList.remove('hidden');
+        $('noticeGame').textContent = 'Dados simulados (sem conexão com a cotação real).';
+        $('noticeGame').classList.remove('hidden');
+      }
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
